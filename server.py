@@ -34,7 +34,8 @@ def receive_message(client_socket):
     except:
         return False
 
-def sendingUsersList(client_socket,sendForOne:bool = False):
+
+def sendingUsersList(client_socket, sendForOne: bool = False):
     msg = f"Online Users: {clientIds}".encode("utf-8")[:256].ljust(256)
     # Creating Client List: 5
     # Sending Client List: 5
@@ -43,9 +44,10 @@ def sendingUsersList(client_socket,sendForOne:bool = False):
         if not sendForOne:
             client_socket.send(msg)
             continue
-        
+
         if client_socket == notified_socket:
             client_socket.send(msg)
+
 
 while True:
     read_sockets, _, exception_sockets = select.select(
@@ -95,12 +97,36 @@ while True:
             if message['Command'] == "LIST":
                 logging.debug(
                     f'Ask for Lists connection from {clients[notified_socket]["client"]}')
-                sendingUsersList(client_socket,sendForOne=True)
+                sendingUsersList(client_socket, sendForOne=True)
                 continue
             # When client ALIVE
             if message['Command'] == "ALIVE":
-               logging.debug(message) #show only on debug mode
-               
+                logging.debug(message)  # show only on debug mode
+
+            if message['Command'].startswith("g"):
+                usersString = message['Command'][1:]
+                usersList = usersString.split(",")
+                print(usersString)
+                print(usersList)
+                print(clientIds)
+                senderID = message['client']
+                message = message['message']
+
+                for user in usersList:
+                    if (user not in clientIds):
+                        msg = f"No User with Id:{user}".encode(
+                            "utf-8")[:256].ljust(256)
+                        for client_socket in clients:
+                            if client_socket == notified_socket:
+                                client_socket.send(msg)
+                    else:
+                        msg = f"\nfrom:{senderID}\nmsg:{message} ".encode(
+                            "utf-8")[:256].ljust(256)
+                        for client_socket in clients:
+                            if clients[client_socket]['client'] == user:
+                                client_socket.send(msg)
+
+                    continue
 
             else:
                 receiverID = message['Command']
@@ -109,22 +135,22 @@ while True:
                 # Case if user not exist in the list
                 # Reply Message if message for offline Client: 5
                 if (receiverID not in clientIds):
-                    msg = f"No User with Id:{receiverID}".encode("utf-8")[:256].ljust(256)
+                    msg = f"No User with Id:{receiverID}".encode(
+                        "utf-8")[:256].ljust(256)
                     for client_socket in clients:
                         if client_socket == notified_socket:
                             client_socket.send(msg)
                 else:
-                    ##\nfrom:{senderID}\nmsg: is always less then 16 so we are safe
+                    # \nfrom:{senderID}\nmsg: is always less then 16 so we are safe
                     # Forward/Reply Message to client (includes creation of message in specified format): 5
-                    msg = f"\nfrom:{senderID}\nmsg:{message} ".encode("utf-8")[:256].ljust(256) 
+                    msg = f"\nfrom:{senderID}\nmsg:{message} ".encode(
+                        "utf-8")[:256].ljust(256)
                     for client_socket in clients:
                         if clients[client_socket]['client'] == receiverID:
                             client_socket.send(msg)
-                    
-                continue
 
+                continue
 
     for notified_socket in exception_sockets:
         sockets_list.remove(notified_socket)
         del clients[notified_socket]
-

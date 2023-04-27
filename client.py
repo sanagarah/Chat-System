@@ -14,15 +14,12 @@ ALIVE_INTERVAL = 10  # seconds
 
 logging.basicConfig(level=logging.DEBUG)
 
+
 class Command(Enum):
     CONNECT = "CONNECT".ljust(CONTROL_LENGTH)
     QUIT = "QUIT".ljust(CONTROL_LENGTH)
     ALIVE = "ALIVE".ljust(CONTROL_LENGTH)
     LIST = "LIST".ljust(CONTROL_LENGTH)
-
-
-
-
 
 
 def handle_messages(sock):
@@ -33,7 +30,7 @@ def handle_messages(sock):
                 logging.info('Server disconnected')
                 sock.close()
                 break
-                 
+
             else:
                 # Exchange Messages with another clients via server: 10
                 # Receiving client list from server (includes tokenization of message): 10
@@ -54,13 +51,24 @@ def send_alive(sock):
 
 
 def handle_notified_message(sock: socket, command: Command):
-  
+
     msg = f"{command.value}{CLIENT_ID}".encode("utf-8")[:256].ljust(256)
     sock.send(msg)
-def handle_normal_message(sock: socket, msg:str):
+
+
+def handle_normal_message(sock: socket, msg: str):
     recipient = msg[1:msg.index(')')][:CONTROL_LENGTH].ljust(CONTROL_LENGTH)
-    message = msg[msg.index(')')+1:][:MESSAGE_LENGTH].ljust(MESSAGE_LENGTH).strip()
+    message = msg[msg.index(
+        ')')+1:][:MESSAGE_LENGTH].ljust(MESSAGE_LENGTH).strip()
     msg = f"{recipient}{CLIENT_ID}{message}".encode("utf-8")[:256].ljust(256)
+    sock.send(msg)
+
+
+def handle_group_message(sock: socket, msg: str):
+    recipient = msg[1:msg.index(']')][:CONTROL_LENGTH].ljust(CONTROL_LENGTH)
+    message = msg[msg.index(']') +
+                  1:][:MESSAGE_LENGTH].ljust(MESSAGE_LENGTH).strip()
+    msg = f"g{recipient}{CLIENT_ID}{message}".encode("utf-8")[:256].ljust(256)
     sock.send(msg)
 
 
@@ -83,11 +91,15 @@ def main():
             break
         elif msg == '@List':
             handle_notified_message(sock=sock, command=Command.LIST)
-            
+
         elif len(msg) > 0 and msg[0] == '(' and ')' in msg:
-            handle_normal_message(sock=sock,msg=msg)
+            handle_normal_message(sock=sock, msg=msg)
+
+        elif len(msg) > 0 and msg[0] == '[' and ']' in msg:
+            handle_group_message(sock=sock, msg=msg)
         else:
-            logging.error("Wrong Format start with @ for command or (#id)#message when you want to send a message ")
+            logging.error(
+                "Wrong Format start with @ for command or (#id)#message when you want to send a message ")
     t.join()
     t2.join()
     sock.close()
